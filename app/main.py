@@ -1,10 +1,25 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-from fastapi import FastAPI
+
+from app.database import initialize_database
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    initialize_database()
+
+    yield
+
 
 app = FastAPI(
     title="Task Runner",
-    description="A small task execution service with dependencies, retries, and concurrency control.",
+    description=(
+        "A small task execution service with dependencies, "
+        "retries, and concurrency control."
+    ),
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 
