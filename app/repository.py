@@ -123,7 +123,7 @@ def delete_task(task_id: str) -> None:
 
     finally:
         connection.close()
-        
+
 def get_task(task_id: str):
     connection = get_connection()
 
@@ -163,3 +163,71 @@ def get_dependencies(task_id: str) -> list[str]:
 
     finally:
         connection.close()
+
+
+def get_ready_tasks():
+    connection = get_connection()
+
+    try:
+        rows = connection.execute(
+            """
+            SELECT t.*
+            FROM tasks t
+            WHERE t.status = 'waiting'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM task_dependencies d
+                  JOIN tasks dependency
+                    ON dependency.id = d.depends_on_task_id
+                  WHERE d.task_id = t.id
+                    AND dependency.status != 'succeeded'
+              )
+            ORDER BY t.created_at ASC
+            """
+        ).fetchall()
+
+        return rows
+
+    finally:
+        connection.close()
+
+def mark_task_running(task_id: str) -> bool:
+    connection = get_connection()
+
+    try:
+        cursor = connection.execute(
+            """
+            UPDATE tasks
+            SET status = 'running',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+              AND status = 'waiting'
+            """,
+            (task_id,),
+        )
+
+        connection.commit()
+
+        return cursor.rowcount == 1
+
+    finally:
+        connection.close()
+
+def mark_task_succeeded(task_id: str) -> None:
+    connection = get_connection()
+
+    try:
+        connection.execute(
+            """
+            UPDATE tasks
+            SET status = 'succeeded',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (task_id,),
+        )
+
+        connection.commit()
+
+    finally:
+        connection.close()                        

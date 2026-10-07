@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 from app.dependency_service import would_create_cycle
 from fastapi import FastAPI, HTTPException
+from app.scheduler import Scheduler
+import asyncio
 
 from app.database import initialize_database
 from app.repository import (
@@ -16,8 +18,23 @@ from app.schemas import TaskCreate, TaskResponse
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+
     initialize_database()
+
+    scheduler_task = asyncio.create_task(
+        scheduler.start()
+    )
+
     yield
+
+    await scheduler.stop()
+
+    scheduler_task.cancel()
+
+    try:
+        await scheduler_task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(
@@ -26,7 +43,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
-
+scheduler = Scheduler()
 
 @app.get("/")
 async def root():
