@@ -107,7 +107,23 @@ def add_dependency(
     finally:
         connection.close()
 
+def delete_task(task_id: str) -> None:
+    connection = get_connection()
 
+    try:
+        connection.execute(
+            """
+            DELETE FROM tasks
+            WHERE id = ?
+            """,
+            (task_id,),
+        )
+
+        connection.commit()
+
+    finally:
+        connection.close()
+        
 def get_task(task_id: str):
     connection = get_connection()
 

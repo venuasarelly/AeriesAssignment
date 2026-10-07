@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
-
+from app.dependency_service import would_create_cycle
 from fastapi import FastAPI, HTTPException
 
 from app.database import initialize_database
 from app.repository import (
     add_dependency,
     create_task,
+    delete_task,
     get_dependencies,
     get_task,
     task_exists,
@@ -41,7 +42,6 @@ async def health():
         "status": "healthy",
     }
 
-
 @app.post(
     "/tasks",
     response_model=TaskResponse,
@@ -57,7 +57,7 @@ async def submit_task(task: TaskCreate):
                 detail=f"Dependency task not found: {dependency_id}",
             )
 
-    # Create the task
+    # Create the task first so we have its ID
     task_id = create_task(
         name=task.name,
         max_retries=task.max_retries,
@@ -66,6 +66,18 @@ async def submit_task(task: TaskCreate):
         duration_max=task.duration_max,
         timeout=task.timeout,
     )
+
+    # Check for circular dependencies
+    for dependency_id in task.dependencies:
+
+        if would_create_cycle(
+            task_id,
+            dependency_id,
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Circular dependency detected",
+            )
 
     # Store dependencies
     for dependency_id in task.dependencies:
