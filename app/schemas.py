@@ -2,9 +2,14 @@ from pydantic import BaseModel, Field
 
 
 class TaskCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
+    name: str = Field(
+        min_length=1,
+        max_length=200,
+    )
 
-    dependencies: list[str] = Field(default_factory=list)
+    dependencies: list[str] = Field(
+        default_factory=list
+    )
 
     max_retries: int = Field(
         default=3,
@@ -40,3 +45,4 @@ class TaskResponse(BaseModel):
     status: str
     attempts: int
     max_retries: int
+    dependencies: list[str]

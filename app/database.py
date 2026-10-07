@@ -1,7 +1,6 @@
 import sqlite3
 from pathlib import Path
 
-
 DATABASE_PATH = Path("data/task_runner.db")
 
 
@@ -14,6 +13,9 @@ def get_connection() -> sqlite3.Connection:
     )
 
     connection.row_factory = sqlite3.Row
+
+    # Enable foreign key validation in SQLite
+    connection.execute("PRAGMA foreign_keys = ON")
 
     return connection
 

@@ -1,0 +1,149 @@
+from datetime import datetime, timezone
+from uuid import uuid4
+
+from app.database import get_connection
+from app.models import TaskStatus
+
+
+def create_task(
+    name: str,
+    max_retries: int,
+    failure_probability: float,
+    duration_min: float,
+    duration_max: float,
+    timeout: float | None,
+) -> str:
+
+    task_id = str(uuid4())
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    connection = get_connection()
+
+    try:
+        connection.execute(
+            """
+            INSERT INTO tasks (
+                id,
+                name,
+                status,
+                attempts,
+                max_retries,
+                failure_probability,
+                duration_min,
+                duration_max,
+                timeout,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                task_id,
+                name,
+                TaskStatus.WAITING.value,
+                0,
+                max_retries,
+                failure_probability,
+                duration_min,
+                duration_max,
+                timeout,
+                now,
+                now,
+            ),
+        )
+
+        connection.commit()
+
+        return task_id
+
+    finally:
+        connection.close()
+
+
+def task_exists(task_id: str) -> bool:
+    connection = get_connection()
+
+    try:
+        row = connection.execute(
+            """
+            SELECT 1
+            FROM tasks
+            WHERE id = ?
+            """,
+            (task_id,),
+        ).fetchone()
+
+        return row is not None
+
+    finally:
+        connection.close()
+
+
+def add_dependency(
+    task_id: str,
+    depends_on_task_id: str,
+) -> None:
+
+    connection = get_connection()
+
+    try:
+        connection.execute(
+            """
+            INSERT INTO task_dependencies (
+                task_id,
+                depends_on_task_id
+            )
+            VALUES (?, ?)
+            """,
+            (
+                task_id,
+                depends_on_task_id,
+            ),
+        )
+
+        connection.commit()
+
+    finally:
+        connection.close()
+
+
+def get_task(task_id: str):
+    connection = get_connection()
+
+    try:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM tasks
+            WHERE id = ?
+            """,
+            (task_id,),
+        ).fetchone()
+
+        return row
+
+    finally:
+        connection.close()
+
+
+def get_dependencies(task_id: str) -> list[str]:
+    connection = get_connection()
+
+    try:
+        rows = connection.execute(
+            """
+            SELECT depends_on_task_id
+            FROM task_dependencies
+            WHERE task_id = ?
+            """,
+            (task_id,),
+        ).fetchall()
+
+        return [
+            row["depends_on_task_id"]
+            for row in rows
+        ]
+
+    finally:
+        connection.close()
