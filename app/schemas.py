@@ -46,3 +46,13 @@ class TaskResponse(BaseModel):
     attempts: int
     max_retries: int
     dependencies: list[str]
+
+
+class TaskStatsResponse(BaseModel):
+    total: int
+    waiting: int
+    running: int
+    succeeded: int
+    failed: int
+    blocked: int
+    cancelled: int

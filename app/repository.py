@@ -410,4 +410,58 @@ def mark_task_succeeded(task_id: str) -> bool:
         return cursor.rowcount == 1
 
     finally:
-        connection.close()                                                       
+        connection.close()  
+
+
+def recover_running_tasks() -> int:
+    connection = get_connection()
+
+    try:
+        cursor = connection.execute(
+            """
+            UPDATE tasks
+            SET status = 'waiting',
+                next_run_at = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE status = 'running'
+            """
+        )
+
+        connection.commit()
+
+        return cursor.rowcount
+
+    finally:
+        connection.close()   
+
+
+def get_task_stats() -> dict:
+    connection = get_connection()
+
+    try:
+        rows = connection.execute(
+            """
+            SELECT status, COUNT(*) AS count
+            FROM tasks
+            GROUP BY status
+            """
+        ).fetchall()
+
+        stats = {
+            "waiting": 0,
+            "running": 0,
+            "succeeded": 0,
+            "failed": 0,
+            "blocked": 0,
+            "cancelled": 0,
+        }
+
+        for row in rows:
+            stats[row["status"]] = row["count"]
+
+        stats["total"] = sum(stats.values())
+
+        return stats
+
+    finally:
+        connection.close()                                                                  
