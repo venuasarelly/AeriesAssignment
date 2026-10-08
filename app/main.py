@@ -3,6 +3,7 @@ from app.dependency_service import would_create_cycle
 from fastapi import FastAPI, HTTPException
 from app.scheduler import Scheduler
 import asyncio
+from app.repository import cancel_task
 
 from app.database import initialize_database
 from app.repository import (
@@ -137,3 +138,29 @@ async def get_task_status(task_id: str):
         max_retries=task["max_retries"],
         dependencies=dependencies,
     )
+
+@app.post("/tasks/{task_id}/cancel")
+def cancel_task_endpoint(task_id: str):
+    task = get_task(task_id)
+
+    if task is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found",
+        )
+
+    cancelled = cancel_task(task_id)
+
+    if not cancelled:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Task cannot be cancelled because "
+                "it is already completed or blocked"
+            ),
+        )
+
+    return {
+        "id": task_id,
+        "status": "cancelled",
+    }    

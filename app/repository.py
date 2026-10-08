@@ -365,4 +365,49 @@ def mark_blocked_tasks() -> int:
         return cursor.rowcount
 
     finally:
-        connection.close()                                       
+        connection.close()
+
+def cancel_task(task_id: str) -> bool:
+    connection = get_connection()
+
+    try:
+        cursor = connection.execute(
+            """
+            UPDATE tasks
+            SET status = 'cancelled',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+              AND status IN ('waiting', 'running')
+            """,
+            (task_id,),
+        )
+
+        connection.commit()
+
+        return cursor.rowcount == 1
+
+    finally:
+        connection.close()
+
+def mark_task_succeeded(task_id: str) -> bool:
+    connection = get_connection()
+
+    try:
+        cursor = connection.execute(
+            """
+            UPDATE tasks
+            SET status = 'succeeded',
+                next_run_at = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+              AND status = 'running'
+            """,
+            (task_id,),
+        )
+
+        connection.commit()
+
+        return cursor.rowcount == 1
+
+    finally:
+        connection.close()                                                       
