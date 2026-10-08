@@ -1,28 +1,9 @@
-
-import sqlite3
-
-from app.database import DATABASE_PATH
 from app.repository import (
     create_task,
     get_task,
     mark_task_running,
     recover_running_tasks,
 )
-
-
-def clear_database():
-    connection = sqlite3.connect(DATABASE_PATH)
-
-    try:
-        connection.execute("DELETE FROM task_dependencies")
-        connection.execute("DELETE FROM tasks")
-        connection.commit()
-    finally:
-        connection.close()
-
-
-def setup_function():
-    clear_database()
 
 
 def test_running_task_is_recovered_to_waiting():

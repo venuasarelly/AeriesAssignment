@@ -10,21 +10,40 @@ async def run_task(task) -> bool:
 
     print(
         f"Starting task {task['id']} "
-        f"({task['name']}) "
-        f"for {duration:.2f}s"
+        f"({task['name']}) for {duration:.2f}s"
     )
 
-    await asyncio.sleep(duration)
+    async def simulate_work():
+        await asyncio.sleep(duration)
 
-    should_fail = (
-        random.random()
-        < task["failure_probability"]
-    )
+        should_fail = (
+            random.random()
+            < task["failure_probability"]
+        )
 
-    if should_fail:
+        if should_fail:
+            raise RuntimeError("Simulated task failure")
+
+    try:
+        if task["timeout"] is not None:
+            await asyncio.wait_for(
+                simulate_work(),
+                timeout=task["timeout"],
+            )
+        else:
+            await simulate_work()
+
+    except asyncio.TimeoutError:
         print(
             f"Task {task['id']} "
-            f"({task['name']}) FAILED"
+            f"({task['name']}) TIMED OUT"
+        )
+        return False
+
+    except RuntimeError as error:
+        print(
+            f"Task {task['id']} "
+            f"({task['name']}) FAILED: {error}"
         )
         return False
 
