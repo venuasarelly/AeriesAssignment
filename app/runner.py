@@ -1,7 +1,10 @@
 import asyncio
 import random
 
-from app.repository import mark_task_succeeded
+from app.repository import (
+    mark_task_failed,
+    mark_task_succeeded,
+)
 
 
 async def run_task(task) -> None:
@@ -17,11 +20,33 @@ async def run_task(task) -> None:
         f"for {duration:.2f}s"
     )
 
+    # Simulate actual work
     await asyncio.sleep(duration)
 
-    mark_task_succeeded(task["id"])
+    # Simulate random failure
+    should_fail = (
+        random.random()
+        < task["failure_probability"]
+    )
+
+    if should_fail:
+
+        mark_task_failed(
+            task["id"]
+        )
+
+        print(
+            f"Task {task['id']} "
+            f"({task['name']}) FAILED"
+        )
+
+        return
+
+    mark_task_succeeded(
+        task["id"]
+    )
 
     print(
-        f"Completed task {task['id']} "
-        f"({task['name']})"
+        f"Task {task['id']} "
+        f"({task['name']}) SUCCEEDED"
     )

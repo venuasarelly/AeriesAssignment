@@ -6,6 +6,7 @@ from app.config import (
 )
 from app.repository import (
     get_ready_tasks,
+    increment_attempts,
     mark_task_running,
 )
 from app.runner import run_task
@@ -82,6 +83,10 @@ class Scheduler:
             if not claimed:
                 self.semaphore.release()
                 continue
+
+            increment_attempts(
+               task["id"]
+            )    
 
             execution = asyncio.create_task(
                 self._execute(task)

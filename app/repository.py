@@ -230,4 +230,44 @@ def mark_task_succeeded(task_id: str) -> None:
         connection.commit()
 
     finally:
-        connection.close()                        
+        connection.close()    
+
+
+def mark_task_failed(task_id: str) -> None:
+    connection = get_connection()
+
+    try:
+        connection.execute(
+            """
+            UPDATE tasks
+            SET status = 'failed',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (task_id,),
+        )
+
+        connection.commit()
+
+    finally:
+        connection.close()   
+
+
+def increment_attempts(task_id: str) -> None:
+    connection = get_connection()
+
+    try:
+        connection.execute(
+            """
+            UPDATE tasks
+            SET attempts = attempts + 1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (task_id,),
+        )
+
+        connection.commit()
+
+    finally:
+        connection.close()                                 
