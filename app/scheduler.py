@@ -6,8 +6,10 @@ from app.config import (
 )
 from app.repository import (
     get_ready_tasks,
+    handle_task_failure,
     increment_attempts,
     mark_task_running,
+    mark_task_succeeded,
 )
 from app.runner import run_task
 
@@ -98,22 +100,20 @@ class Scheduler:
                 self._task_finished
             )
 
-    async def _execute(self, task):
+async def _execute(self, task):
+    try:
+        succeeded = await run_task(task)
 
-        try:
+        if succeeded:
+            mark_task_succeeded(task["id"])
+        else:
+            handle_task_failure(task["id"])
 
-            await run_task(task)
+    except Exception as error:
+        print(
+            f"Unexpected error while running "
+            f"task {task['id']}: {error}"
+        )
 
-        except Exception as error:
-
-            print(
-                f"Task {task['id']} failed: {error}"
-            )
-
-        finally:
-
-            self.semaphore.release()
-
-    def _task_finished(self, task):
-
-        self.running_tasks.discard(task)
+    finally:
+        self.semaphore.release()

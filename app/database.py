@@ -1,6 +1,7 @@
 import sqlite3
 from pathlib import Path
 
+
 DATABASE_PATH = Path("data/task_runner.db")
 
 
@@ -37,7 +38,8 @@ def initialize_database() -> None:
                 duration_max REAL NOT NULL DEFAULT 5.0,
                 timeout REAL,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                next_run_at REAL
             )
             """
         )
@@ -60,6 +62,25 @@ def initialize_database() -> None:
             )
             """
         )
+
+        # Migration for databases created before Phase 7.
+        # If next_run_at does not exist, add it.
+        columns = connection.execute(
+            "PRAGMA table_info(tasks)"
+        ).fetchall()
+
+        column_names = {
+            column["name"]
+            for column in columns
+        }
+
+        if "next_run_at" not in column_names:
+            connection.execute(
+                """
+                ALTER TABLE tasks
+                ADD COLUMN next_run_at REAL
+                """
+            )
 
         connection.commit()
 

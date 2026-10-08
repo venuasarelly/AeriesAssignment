@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from uuid import uuid4
+import time
 
 from app.database import get_connection
 from app.models import TaskStatus
@@ -24,19 +25,11 @@ def create_task(
         connection.execute(
             """
             INSERT INTO tasks (
-                id,
-                name,
-                status,
-                attempts,
-                max_retries,
-                failure_probability,
-                duration_min,
-                duration_max,
-                timeout,
-                created_at,
-                updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    id, name, status, attempts, max_retries,
+    failure_probability, duration_min, duration_max,
+    timeout, created_at, updated_at, next_run_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 task_id,
@@ -50,6 +43,7 @@ def create_task(
                 timeout,
                 now,
                 now,
+                None
             ),
         )
 
@@ -167,13 +161,16 @@ def get_dependencies(task_id: str) -> list[str]:
 
 def get_ready_tasks():
     connection = get_connection()
-
     try:
         rows = connection.execute(
             """
             SELECT t.*
             FROM tasks t
             WHERE t.status = 'waiting'
+              AND (
+                  t.next_run_at IS NULL
+                  OR t.next_run_at <= ?
+              )
               AND NOT EXISTS (
                   SELECT 1
                   FROM task_dependencies d
@@ -183,11 +180,11 @@ def get_ready_tasks():
                     AND dependency.status != 'succeeded'
               )
             ORDER BY t.created_at ASC
-            """
+            """,
+            (time.time(),),
         ).fetchall()
 
         return rows
-
     finally:
         connection.close()
 
@@ -270,4 +267,71 @@ def increment_attempts(task_id: str) -> None:
         connection.commit()
 
     finally:
-        connection.close()                                 
+        connection.close()    
+
+
+def handle_task_failure(task_id: str) -> bool:
+    connection = get_connection()
+
+    try:
+        row = connection.execute(
+            """
+            SELECT attempts, max_retries
+            FROM tasks
+            WHERE id = ?
+            """,
+            (task_id,),
+        ).fetchone()
+
+        if row is None:
+            return False
+
+        attempts = row["attempts"]
+        max_retries = row["max_retries"]
+
+        if attempts <= max_retries:
+            delay = 2 ** (attempts - 1)
+            next_run_at = time.time() + delay
+
+            connection.execute(
+                """
+                UPDATE tasks
+                SET status = 'waiting',
+                    next_run_at = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (next_run_at, task_id),
+            )
+
+            connection.commit()
+
+            print(
+                f"Task {task_id} failed. "
+                f"Retrying in {delay}s."
+            )
+
+            return True
+
+        connection.execute(
+            """
+            UPDATE tasks
+            SET status = 'failed',
+                next_run_at = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (task_id,),
+        )
+
+        connection.commit()
+
+        print(
+            f"Task {task_id} permanently FAILED "
+            f"after {attempts} attempts."
+        )
+
+        return False
+
+    finally:
+        connection.close()                                     

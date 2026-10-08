@@ -1,10 +1,8 @@
+
 import pytest
 
 from app.database import initialize_database
-from app.repository import (
-    create_task,
-    get_task,
-)
+from app.repository import create_task, get_task
 from app.runner import run_task
 
 
@@ -14,7 +12,6 @@ def setup_function():
 
 @pytest.mark.asyncio
 async def test_task_always_succeeds():
-
     task_id = create_task(
         name="Success Task",
         max_retries=0,
@@ -26,16 +23,13 @@ async def test_task_always_succeeds():
 
     task = get_task(task_id)
 
-    await run_task(task)
+    result = await run_task(task)
 
-    updated_task = get_task(task_id)
-
-    assert updated_task["status"] == "succeeded"
+    assert result is True
 
 
 @pytest.mark.asyncio
 async def test_task_always_fails():
-
     task_id = create_task(
         name="Failure Task",
         max_retries=0,
@@ -47,8 +41,6 @@ async def test_task_always_fails():
 
     task = get_task(task_id)
 
-    await run_task(task)
+    result = await run_task(task)
 
-    updated_task = get_task(task_id)
-
-    assert updated_task["status"] == "failed"
+    assert result is False
