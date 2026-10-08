@@ -8,6 +8,7 @@ from app.repository import (
     get_ready_tasks,
     handle_task_failure,
     increment_attempts,
+    mark_blocked_tasks,
     mark_task_running,
     mark_task_succeeded,
 )
@@ -65,7 +66,7 @@ class Scheduler:
         print("Scheduler stopped")
 
     async def schedule_ready_tasks(self):
-
+        mark_blocked_tasks()
         ready_tasks = get_ready_tasks()
 
         for task in ready_tasks:

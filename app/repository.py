@@ -161,6 +161,7 @@ def get_dependencies(task_id: str) -> list[str]:
 
 def get_ready_tasks():
     connection = get_connection()
+
     try:
         rows = connection.execute(
             """
@@ -185,6 +186,7 @@ def get_ready_tasks():
         ).fetchall()
 
         return rows
+
     finally:
         connection.close()
 
@@ -334,4 +336,33 @@ def handle_task_failure(task_id: str) -> bool:
         return False
 
     finally:
-        connection.close()                                     
+        connection.close()      
+
+
+def mark_blocked_tasks() -> int:
+    connection = get_connection()
+
+    try:
+        cursor = connection.execute(
+            """
+            UPDATE tasks
+            SET status = 'blocked',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE status = 'waiting'
+              AND EXISTS (
+                  SELECT 1
+                  FROM task_dependencies d
+                  JOIN tasks dependency
+                    ON dependency.id = d.depends_on_task_id
+                  WHERE d.task_id = tasks.id
+                    AND dependency.status IN ('failed', 'blocked', 'cancelled')
+              )
+            """
+        )
+
+        connection.commit()
+
+        return cursor.rowcount
+
+    finally:
+        connection.close()                                       
